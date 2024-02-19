@@ -180,6 +180,9 @@ class Instr(object):
     fmt_RRRN_disp   = (2, (Operand(Operand.REG, 4, 4), Operand(Operand.MEM_INDEX, 4, 12, vshift=2, regbase=(4, 8))))
     fmt_RI6         = (2, (Operand(Operand.REG, 4, 8), Operand(Operand.RELU, 4, 12, 2, 4)))
     fmt_RI7         = (2, (Operand(Operand.REG, 4, 8), Operand(Operand.IMM, 4, 12, 3, 4, xlate=movi_n)))
+    fmt_I4          = (3, (Operand(Operand.IMM, 4, 4),))
+    fmt_WUR         = (3, (Operand(Operand.IMM, 8, 8), Operand(Operand.REG, 4, 4)))
+    fmt_RUR         = (3, (Operand(Operand.REG, 4, 12), Operand(Operand.IMM, 8, 4),))
 
     def __init__(self, name, opcode, mask, fmt, flags = 0):
         self.name = name
@@ -410,6 +413,7 @@ class XtensaProcessor(processor_t):
         ("rfue",   0x003100, 0xffffff, Instr.fmt_NONE, CF_STOP ),
         ("rfwo",   0x003400, 0xffffff, Instr.fmt_NONE, CF_STOP ),
         ("rfwu",   0x003500, 0xffffff, Instr.fmt_NONE, CF_STOP ),
+        ("rotw",   0x408000, 0xffff0f, Instr.fmt_I4 ),
         ("round.s",0x8a0000, 0xff000f, Instr.fmt_RRR_ceil ),
         ("rfe",    0x003000, 0xffffff, Instr.fmt_NONE, CF_STOP ),
         ("rfi",    0x003010, 0xfff0ff, Instr.fmt_RRR_1imm, CF_STOP ),
@@ -435,6 +439,7 @@ class XtensaProcessor(processor_t):
         ("rsr.ddr",       0x036800, 0xffff0f, Instr.fmt_RSR_spec ),
         ("rsr",    0x030000, 0xff000f, Instr.fmt_RSR ),
         ("rsync",  0x002010, 0xffffff, Instr.fmt_NONE ),
+        ("rur",    0xe30000, 0xff000f, Instr.fmt_RUR ),
         ("s8i",    0x004002, 0x00f00f, Instr.fmt_RRI8_disp ),
         ("s16i",   0x005002, 0x00f00f, Instr.fmt_RRI8_disp16 ),
         ("s32c1i", 0x00e002, 0x00f00f, Instr.fmt_RRI8_s32c1a ),
@@ -484,6 +489,7 @@ class XtensaProcessor(processor_t):
         ("wsr.intclear",  0x13e300, 0xffff0f, Instr.fmt_RSR_spec ),
         ("wsr.sar",       0x130300, 0xffff0f, Instr.fmt_RSR_spec ),
         ("wsr",    0x130000, 0xff000f, Instr.fmt_RSR ),
+        ("wur",    0xf3e030, 0xfff0ff, Instr.fmt_WUR ),
         ("xor",    0x300000, 0xff000f, Instr.fmt_RRR ),
         ("xorb",   0x420000, 0xff000f, Instr.fmt_RRR ),
         ("xsr",    0x610000, 0xff000f, Instr.fmt_RSR ),
