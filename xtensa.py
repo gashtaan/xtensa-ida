@@ -655,7 +655,7 @@ class XtensaProcessor(processor_t):
             if ctx.insn[i].type == o_void:
                 break
 
-            if i > 0:
+            if i > 1:
                 ctx.out_symbol(',')
             ctx.out_char(' ')
             ctx.out_one_operand(i)
