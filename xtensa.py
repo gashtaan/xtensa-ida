@@ -50,6 +50,7 @@ class Operand:
     RELAL   = 4
     RELU    = 5
     MEM_INDEX = 6
+    FREG    = 7
 
     def __init__(self, type, size, rshift, size2 = 0, rshift2 = 0, signext = False, vshift = 0, off = 0, xlate = None, dt = dt_byte, regbase = None):
         self.type = type
@@ -87,6 +88,9 @@ class Operand:
         if self.type == Operand.REG:
             ret.type = o_reg
             ret.reg = val if val < 16 else 16
+        elif self.type == Operand.FREG:
+            ret.type = o_reg
+            ret.reg = 16 + val if val < 16 else 16
         elif self.type == Operand.IMM:
             ret.type = o_imm
             ret.value = val
@@ -151,7 +155,6 @@ class Instr(object):
     fmt_RRR_ssai    = (3, (Operand(Operand.IMM, 4, 8, 1, 4),))
     fmt_RRI4        = (3, (Operand(Operand.REG, 4, 4), Operand(Operand.REG, 4, 8), Operand(Operand.IMM, 12, 4)))
     fmt_RRI8        = (3, (Operand(Operand.REG, 4, 4), Operand(Operand.REG, 4, 8), Operand(Operand.IMM, 8, 16, signext = True)))
-    fmt_RRI8_lsi    = (3, (Operand(Operand.REG, 4, 4), Operand(Operand.REG, 4, 8), Operand(Operand.IMM, 8, 16)))
     fmt_RRI8_bf     = (3, (Operand(Operand.REG, 4, 8), Operand(Operand.IMM, 8, 16,)))
     fmt_RRI8_loop   = (3, (Operand(Operand.REG, 4, 8), Operand(Operand.RELU, 8, 16)))
     fmt_RRI8_addmi  = (3, (Operand(Operand.REG, 4, 4), Operand(Operand.REG, 4, 8), Operand(Operand.IMM, 8, 16, signext = True, vshift=8, dt=dt_dword)))
@@ -183,6 +186,17 @@ class Instr(object):
     fmt_I4          = (3, (Operand(Operand.IMM, 4, 4),))
     fmt_WUR         = (3, (Operand(Operand.IMM, 8, 8), Operand(Operand.REG, 4, 4)))
     fmt_RUR         = (3, (Operand(Operand.REG, 4, 12), Operand(Operand.IMM, 8, 4),))
+    fmt_FF          = (3, (Operand(Operand.FREG, 4, 12), Operand(Operand.FREG, 4, 8)))
+    fmt_FFF         = (3, (Operand(Operand.FREG, 4, 12), Operand(Operand.FREG, 4, 8), Operand(Operand.FREG, 4, 4)))
+    fmt_FFR         = (3, (Operand(Operand.FREG, 4, 12), Operand(Operand.FREG, 4, 8), Operand(Operand.REG, 4, 4)))
+    fmt_FR          = (3, (Operand(Operand.FREG, 4, 12), Operand(Operand.REG, 4, 8)))
+    fmt_FR_scale    = (3, (Operand(Operand.FREG, 4, 12), Operand(Operand.REG, 4, 8), Operand(Operand.IMM, 4, 4)))
+    fmt_FRR         = (3, (Operand(Operand.FREG, 4, 12), Operand(Operand.REG, 4, 8), Operand(Operand.REG, 4, 4)))
+    fmt_FRI8        = (3, (Operand(Operand.FREG, 4, 4), Operand(Operand.REG, 4, 8), Operand(Operand.IMM, 8, 16)))
+    fmt_FI4         = (3, (Operand(Operand.FREG, 4, 12), Operand(Operand.IMM, 4, 8)))
+    fmt_RF          = (3, (Operand(Operand.REG, 4, 12), Operand(Operand.FREG, 4, 8)))
+    fmt_RF_scale    = (3, (Operand(Operand.REG, 4, 12), Operand(Operand.FREG, 4, 8), Operand(Operand.IMM, 4, 4)))
+    fmt_RFF         = (3, (Operand(Operand.REG, 4, 12), Operand(Operand.FREG, 4, 8), Operand(Operand.FREG, 4, 4)))
 
     def __init__(self, name, opcode, mask, fmt, flags = 0):
         self.name = name
@@ -250,9 +264,7 @@ class XtensaProcessor(processor_t):
 
     ops = (
         ("abs",    0x600100, 0xff0f0f, Instr.fmt_RRR_2rr ),
-        ("abs.s",  0xfa0010, 0xff00ff, Instr.fmt_RRR_sll ),
         ("add",    0x800000, 0xff000f, Instr.fmt_RRR ),
-        ("add.s",  0x0a0000, 0xff000f, Instr.fmt_RRR ),
         ("addi",   0x00c002, 0x00f00f, Instr.fmt_RRI8 ),
         ("addmi",  0x00d002, 0x00f00f, Instr.fmt_RRI8_addmi ),
         ("addx2",  0x900000, 0xff000f, Instr.fmt_RRR ),
@@ -300,7 +312,6 @@ class XtensaProcessor(processor_t):
         ("callx4", 0x0000d0, 0xfff0ff, Instr.fmt_CALLX, CF_CALL | CF_JUMP ),
         ("callx8", 0x0000e0, 0xfff0ff, Instr.fmt_CALLX, CF_CALL | CF_JUMP ),
         ("callx12",0x0000f0, 0xfff0ff, Instr.fmt_CALLX, CF_CALL | CF_JUMP ),
-        ("ceil.s", 0xba0000, 0xff000f, Instr.fmt_RRR_ceil, ),
         ("clamps", 0x330000, 0xff000f, Instr.fmt_RRR_ceil, ),
         ("dsync",  0x002030, 0xffffff, Instr.fmt_NONE ),
         ("entry",  0x000036, 0x0000ff, Instr.fmt_RI12S3 ),
@@ -308,8 +319,6 @@ class XtensaProcessor(processor_t):
         ("excw",   0x002080, 0xffffff, Instr.fmt_NONE ),
         ("extui",  0x040000, 0x0e000f, Instr.fmt_RRR_extui ),
         ("extw",   0x0020d0, 0xffffff, Instr.fmt_NONE ),
-        ("float.s",0xca0000, 0xff000f, Instr.fmt_RRR_ceil ),
-        ("floor.s",0xaa0000, 0xff000f, Instr.fmt_RRR_ceil ),
         ("isync",  0x002000, 0xffffff, Instr.fmt_NONE ),
         ("ill",    0x000000, 0xffffff, Instr.fmt_NONE ),
         ("j",      0x000006, 0x00003f, Instr.fmt_CALL, CF_STOP | CF_JUMP),
@@ -326,33 +335,20 @@ class XtensaProcessor(processor_t):
         ("loop",   0x008076, 0x00f0ff, Instr.fmt_RRI8_loop, CF_JUMP ),
         ("loopgtz",0x00a076, 0x00f0ff, Instr.fmt_RRI8_loop, CF_JUMP ),
         ("loopnez",0x009076, 0x00f0ff, Instr.fmt_RRI8_loop, CF_JUMP ),
-        ("lsi",    0x000003, 0x00f00f, Instr.fmt_RRI8_lsi ),
-        ("lsiu",   0x008003, 0x00f00f, Instr.fmt_RRI8_lsi ),
-        ("lsx",    0x080000, 0xff000f, Instr.fmt_RRR ),
-        ("lsxu",   0x180000, 0xff000f, Instr.fmt_RRR ),
-        ("madd.s", 0x4a0000, 0xff000f, Instr.fmt_RRR ),
         ("max",    0x530000, 0xff000f, Instr.fmt_RRR ),
         ("maxu",   0x730000, 0xff000f, Instr.fmt_RRR ),
         ("memw",   0x0020c0, 0xffffff, Instr.fmt_NONE ),
         ("min",    0x430000, 0xff000f, Instr.fmt_RRR ),
         ("minu",   0x630000, 0xff000f, Instr.fmt_RRR ),
         ("mov",    0x200000, 0xff000f, Instr.fmt_RRR_sll ),
-        ("mov.s",  0xfa0000, 0xff00ff, Instr.fmt_RRR_sll ),
         ("moveqz", 0x830000, 0xff000f, Instr.fmt_RRR ),
-        ("moveqz.s",      0x8b0000, 0xff000f, Instr.fmt_RRR ),
         ("movf",   0xc30000, 0xff000f, Instr.fmt_RRR ),
-        ("movf.s", 0xcb0000, 0xff000f, Instr.fmt_RRR ),
         ("movgez", 0xb30000, 0xff000f, Instr.fmt_RRR ),
-        ("movgez.s",      0xbb0000, 0xff000f, Instr.fmt_RRR ),
         ("movi",   0x00a002, 0x00f00f, Instr.fmt_RRI8_i12 ),
         ("movltz", 0xa30000, 0xff000f, Instr.fmt_RRR ),
-        ("movltz.s",      0xab0000, 0xff000f, Instr.fmt_RRR ),
         ("movnez", 0x930000, 0xff000f, Instr.fmt_RRR ),
-        ("movnez.s",      0x9b0000, 0xff000f, Instr.fmt_RRR ),
         ("movsp",  0x001000, 0xfff00f, Instr.fmt_RRR_2r ),
         ("movt",   0xd30000, 0xff000f, Instr.fmt_RRR ),
-        ("movt.s", 0xdb0000, 0xff000f, Instr.fmt_RRR ),
-        ("msub.s", 0x5a0000, 0xff000f, Instr.fmt_RRR ),
         ("mul.aa.ll",     0x740004, 0xfff00f, Instr.fmt_RRR_2r ),
         ("mul.aa.hl",     0x750004, 0xfff00f, Instr.fmt_RRR_2r ),
         ("mul.aa.lh",     0x760004, 0xfff00f, Instr.fmt_RRR_2r ),
@@ -369,7 +365,6 @@ class XtensaProcessor(processor_t):
         ("mul.dd.lh",     0x250004, 0xffbfbf, Instr.fmt_RRR_mul_dd ),
         ("mul.dd.hl",     0x260004, 0xffbfbf, Instr.fmt_RRR_mul_dd ),
         ("mul.dd.hh",     0x270004, 0xffbfbf, Instr.fmt_RRR_mul_dd ),
-        ("mul.s", 0x2a0000, 0xff000f, Instr.fmt_RRR ),
         ("mula.aa.ll",    0x780004, 0xfff00f, Instr.fmt_RRR_2r ),
         ("mula.aa.hl",    0x790004, 0xfff00f, Instr.fmt_RRR_2r ),
         ("mula.aa.lh",    0x7a0004, 0xfff00f, Instr.fmt_RRR_2r ),
@@ -392,13 +387,9 @@ class XtensaProcessor(processor_t):
         ("mul16u", 0xc10000, 0xff000f, Instr.fmt_RRR ),
         ("muluh",  0xa20000, 0xff000f, Instr.fmt_RRR ),
         ("neg",    0x600000, 0xff0f0f, Instr.fmt_RRR_2rr ),
-        ("neg.s",  0xfa0060, 0xff00ff, Instr.fmt_RRR_sll ),
         ("nop",    0x0020f0, 0xffffff, Instr.fmt_NONE ),
         ("nsa",    0x40e000, 0xfff00f, Instr.fmt_RRR_2r ),
         ("nsau",   0x40f000, 0xfff00f, Instr.fmt_RRR_2r ),
-        ("oeq.s",  0x2b0000, 0xff000f, Instr.fmt_RRR ),
-        ("ole.s",  0x6b0000, 0xff000f, Instr.fmt_RRR ),
-        ("olt.s",  0x4b0000, 0xff000f, Instr.fmt_RRR ),
         ("or",     0x200000, 0xff000f, Instr.fmt_RRR ),
         ("orb",    0x220000, 0xff000f, Instr.fmt_RRR ),
         ("orbc",   0x320000, 0xff000f, Instr.fmt_RRR ),
@@ -409,12 +400,10 @@ class XtensaProcessor(processor_t):
         ("rer",    0x406000, 0xfff00f, Instr.fmt_RRR_2r ),
         ("ret",    0x000080, 0xffffff, Instr.fmt_NONE, CF_STOP ),
         ("retw",   0x000090, 0xffffff, Instr.fmt_NONE, CF_STOP ),
-        ("rfr",    0xfa0040, 0xff00ff, Instr.fmt_RRR_sll ),
         ("rfue",   0x003100, 0xffffff, Instr.fmt_NONE, CF_STOP ),
         ("rfwo",   0x003400, 0xffffff, Instr.fmt_NONE, CF_STOP ),
         ("rfwu",   0x003500, 0xffffff, Instr.fmt_NONE, CF_STOP ),
         ("rotw",   0x408000, 0xffff0f, Instr.fmt_I4 ),
-        ("round.s",0x8a0000, 0xff000f, Instr.fmt_RRR_ceil ),
         ("rfe",    0x003000, 0xffffff, Instr.fmt_NONE, CF_STOP ),
         ("rfi",    0x003010, 0xfff0ff, Instr.fmt_RRR_1imm, CF_STOP ),
         ("rsil",   0x006000, 0xfff00f, Instr.fmt_RRR_immr ),
@@ -457,28 +446,15 @@ class XtensaProcessor(processor_t):
         ("ssa8b",  0x403000, 0xfff0ff, Instr.fmt_RRR_ssa ),
         ("ssa8l",  0x402000, 0xfff0ff, Instr.fmt_RRR_ssa ),
         ("ssai",   0x404000, 0xfff0ef, Instr.fmt_RRR_ssai ),
-        ("ssi",    0x004003, 0x00f00f, Instr.fmt_RRI8 ),
-        ("ssiu",   0x00c003, 0x00f00f, Instr.fmt_RRI8 ),
         ("ssl",    0x401000, 0xfff0ff, Instr.fmt_RRR_ssa ),
         ("ssr",    0x400000, 0xfff0ff, Instr.fmt_RRR_ssa ),
-        ("ssx",    0x480000, 0xff000f, Instr.fmt_RRR ),
-        ("ssx",    0x580000, 0xff000f, Instr.fmt_RRR ),
         ("sub",    0xc00000, 0xff000f, Instr.fmt_RRR ),
-        ("sub.s",  0x1a0000, 0xff000f, Instr.fmt_RRR ),
         ("subx2",  0xd00000, 0xff000f, Instr.fmt_RRR ),
         ("subx4",  0xe00000, 0xff000f, Instr.fmt_RRR ),
         ("subx8",  0xf00000, 0xff000f, Instr.fmt_RRR ),
         ("syscall",0x005000, 0xffffff, Instr.fmt_NONE ),
-        ("trunc.s",0x9a0000, 0xff000f, Instr.fmt_RRR_ceil ),
-        ("ueq.s",  0x3b0000, 0xff000f, Instr.fmt_RRR ),
-        ("ufloat.s",      0xda0000, 0xff000f, Instr.fmt_RRR_ceil ),
-        ("ule.s",  0x7b0000, 0xff000f, Instr.fmt_RRR ),
-        ("ult.s",  0x5b0000, 0xff000f, Instr.fmt_RRR ),
-        ("un.s",   0x1b0000, 0xff000f, Instr.fmt_RRR ),
-        ("utrunc.s",      0xea0000, 0xff000f, Instr.fmt_RRR_ceil ),
         ("waiti",  0x007000, 0xfff0ff, Instr.fmt_RRR_1imm ),
         ("wdtlb",  0x50e000, 0xfff00f, Instr.fmt_RRR_2r ),
-        ("wfr",    0xfa0050, 0xff00ff, Instr.fmt_RRR_sll ),
         ("witlb",  0x506000, 0xfff00f, Instr.fmt_RRR_2r ),
         ("wsr.intenable", 0x13e400, 0xffff0f, Instr.fmt_RSR_spec ),
         ("wsr.litbase",   0x130500, 0xffff0f, Instr.fmt_RSR_spec ),
@@ -507,6 +483,104 @@ class XtensaProcessor(processor_t):
         ("nop.n",   0xf03d, 0xffff, Instr.fmt_NNONE ),
         ("s32i.n",  0x0009, 0x000f, Instr.fmt_RRRN_disp ),
         ("ill.n",  0xf06d, 0xffff, Instr.fmt_NONE ),
+
+        # floating-point coprocessor option
+        ("abs.d",         0xff0010, 0xff00ff, Instr.fmt_FF ),
+        ("abs.s",         0xfa0010, 0xff00ff, Instr.fmt_FF ),
+        ("add.d",         0x0f0000, 0xff000f, Instr.fmt_FFF ),
+        ("add.s",         0x0a0000, 0xff000f, Instr.fmt_FFF ),
+        ("addexp.d",      0xff00e0, 0xff00ff, Instr.fmt_FF ),
+        ("addexp.s",      0xfa00e0, 0xff00ff, Instr.fmt_FF ),
+        ("addexpm.d",     0xff00f0, 0xff00ff, Instr.fmt_FF ),
+        ("addexpm.s",     0xfa00f0, 0xff00ff, Instr.fmt_FF ),
+        ("ceil.d",        0xbf0000, 0xff000f, Instr.fmt_RF_scale, ),
+        ("ceil.s",        0xba0000, 0xff000f, Instr.fmt_RF_scale, ),
+        ("const.d",       0xff0030, 0xff00ff, Instr.fmt_FI4, ),
+        ("const.s",       0xfa0030, 0xff00ff, Instr.fmt_FI4, ),
+        ("cvtd.d",        0xff0020, 0xff00ff, Instr.fmt_FF, ),
+        ("cvtd.s",        0xfa0020, 0xff00ff, Instr.fmt_FF, ),
+        ("div0.d",        0xff0070, 0xff00ff, Instr.fmt_FF, ),
+        ("div0.s",        0xfa0070, 0xff00ff, Instr.fmt_FF, ),
+        ("divn.d",        0x7f0000, 0xff000f, Instr.fmt_FFF, ),
+        ("divn.s",        0x7a0000, 0xff000f, Instr.fmt_FFF, ),
+        ("float.d",       0xcf0000, 0xff000f, Instr.fmt_FR_scale ),
+        ("float.s",       0xca0000, 0xff000f, Instr.fmt_FR_scale ),
+        ("floor.d",       0xaf0000, 0xff000f, Instr.fmt_RF_scale ),
+        ("floor.s",       0xaa0000, 0xff000f, Instr.fmt_RF_scale ),
+        ("ldi",           0x001003, 0x00f00f, Instr.fmt_FRI8 ),
+        ("ldip",          0x009003, 0x00f00f, Instr.fmt_FRI8 ),
+        ("ldx",           0x280000, 0xff000f, Instr.fmt_FRR ),
+        ("ldxp",          0x380000, 0xff000f, Instr.fmt_FRR ),
+        ("lsi",           0x000003, 0x00f00f, Instr.fmt_FRI8 ),
+        ("lsip",          0x008003, 0x00f00f, Instr.fmt_FRI8 ),
+        ("lsx",           0x080000, 0xff000f, Instr.fmt_FRR ),
+        ("lsxp",          0x180000, 0xff000f, Instr.fmt_FRR ),
+        ("madd.d",        0x4f0000, 0xff000f, Instr.fmt_FFF ),
+        ("madd.s",        0x4a0000, 0xff000f, Instr.fmt_FFF ),
+        ("maddn.d",       0x6f0000, 0xff000f, Instr.fmt_FFF ),
+        ("maddn.s",       0x6a0000, 0xff000f, Instr.fmt_FFF ),
+        ("mkdadj.d",      0xff00d0, 0xff00ff, Instr.fmt_FF ),
+        ("mkdadj.s",      0xfa00d0, 0xff00ff, Instr.fmt_FF ),
+        ("mksadj.d",      0xff00c0, 0xff00ff, Instr.fmt_FF ),
+        ("mksadj.s",      0xfa00c0, 0xff00ff, Instr.fmt_FF ),
+        ("mov.d",         0xff0000, 0xff00ff, Instr.fmt_FF ),
+        ("mov.s",         0xfa0000, 0xff00ff, Instr.fmt_FF ),
+        ("moveqz.s",      0x8b0000, 0xff000f, Instr.fmt_FFR ),
+        ("movf.s",        0xcb0000, 0xff000f, Instr.fmt_FFR ),
+        ("movgez.s",      0xbb0000, 0xff000f, Instr.fmt_FFR ),
+        ("movltz.s",      0xab0000, 0xff000f, Instr.fmt_FFR ),
+        ("movnez.s",      0x9b0000, 0xff000f, Instr.fmt_FFR ),
+        ("movt.s",        0xdb0000, 0xff000f, Instr.fmt_FFR ),
+        ("msub.d",        0x5f0000, 0xff000f, Instr.fmt_FFF ),
+        ("msub.s",        0x5a0000, 0xff000f, Instr.fmt_FFF ),
+        ("mul.d",         0x2f0000, 0xff000f, Instr.fmt_FFF ),
+        ("mul.s",         0x2a0000, 0xff000f, Instr.fmt_FFF ),
+        ("neg.d",         0xff0060, 0xff00ff, Instr.fmt_FF ),
+        ("neg.s",         0xfa0060, 0xff00ff, Instr.fmt_FF ),
+        ("nexp01.d",      0xff00b0, 0xff00ff, Instr.fmt_FF ),
+        ("nexp01.s",      0xfa00b0, 0xff00ff, Instr.fmt_FF ),
+        ("oeq.d",         0x2e0000, 0xff000f, Instr.fmt_RFF ),
+        ("oeq.s",         0x2b0000, 0xff000f, Instr.fmt_RFF ),
+        ("ole.d",         0x6e0000, 0xff000f, Instr.fmt_RFF ),
+        ("ole.s",         0x6b0000, 0xff000f, Instr.fmt_RFF ),
+        ("olt.d",         0x4e0000, 0xff000f, Instr.fmt_RFF ),
+        ("olt.s",         0x4b0000, 0xff000f, Instr.fmt_RFF ),
+        ("recip0.d",      0xff0080, 0xff00ff, Instr.fmt_FF ),
+        ("recip0.s",      0xfa0080, 0xff00ff, Instr.fmt_FF ),
+        ("rfr",           0xfa0040, 0xff00ff, Instr.fmt_RF ),
+        ("rfrd",          0xff0040, 0xff00ff, Instr.fmt_RF ),
+        ("round.d",       0x8f0000, 0xff000f, Instr.fmt_RF_scale ),
+        ("round.s",       0x8a0000, 0xff000f, Instr.fmt_RF_scale ),
+        ("rsqrt0.d",      0xff00a0, 0xff00ff, Instr.fmt_FF ),
+        ("rsqrt0.s",      0xfa00a0, 0xff00ff, Instr.fmt_FF ),
+        ("sdi",           0x005003, 0x00f00f, Instr.fmt_FRI8 ),
+        ("sdip",          0x00d003, 0x00f00f, Instr.fmt_FRI8 ),
+        ("sdx",           0x680000, 0xff000f, Instr.fmt_FRR ),
+        ("sdxp",          0x780000, 0xff000f, Instr.fmt_FRR ),
+        ("sqrt0.d",       0xff0090, 0xff00ff, Instr.fmt_FF ),
+        ("sqrt0.s",       0xfa0090, 0xff00ff, Instr.fmt_FF ),
+        ("ssi",           0x004003, 0x00f00f, Instr.fmt_FRI8 ),
+        ("ssip",          0x00c003, 0x00f00f, Instr.fmt_FRI8 ),
+        ("ssx",           0x480000, 0xff000f, Instr.fmt_FRR ),
+        ("ssxp",          0x580000, 0xff000f, Instr.fmt_FRR ),
+        ("sub.d",         0x1f0000, 0xff000f, Instr.fmt_FFF ),
+        ("sub.s",         0x1a0000, 0xff000f, Instr.fmt_FFF ),
+        ("trunc.d",       0x9f0000, 0xff000f, Instr.fmt_RF_scale ),
+        ("trunc.s",       0x9a0000, 0xff000f, Instr.fmt_RF_scale ),
+        ("ueq.d",         0x3f0000, 0xff000f, Instr.fmt_RFF ),
+        ("ueq.s",         0x3b0000, 0xff000f, Instr.fmt_RFF ),
+        ("ufloat.d",      0xdf0000, 0xff000f, Instr.fmt_FR_scale ),
+        ("ufloat.s",      0xda0000, 0xff000f, Instr.fmt_FR_scale ),
+        ("ule.d",         0x7e0000, 0xff000f, Instr.fmt_RFF ),
+        ("ule.s",         0x7b0000, 0xff000f, Instr.fmt_RFF ),
+        ("ult.d",         0x5e0000, 0xff000f, Instr.fmt_RFF ),
+        ("ult.s",         0x5b0000, 0xff000f, Instr.fmt_RFF ),
+        ("un.d",          0x1e0000, 0xff000f, Instr.fmt_RFF ),
+        ("un.s",          0x1b0000, 0xff000f, Instr.fmt_RFF ),
+        ("utrunc.d",      0xef0000, 0xff000f, Instr.fmt_RF_scale ),
+        ("utrunc.s",      0xea0000, 0xff000f, Instr.fmt_RF_scale ),
+        ("wfr",           0xfa0050, 0xff00ff, Instr.fmt_FR ),
+        ("wfrd",          0x8e0000, 0xff000f, Instr.fmt_FRR ),
     )
 
     def __init__(self):
@@ -544,6 +618,7 @@ class XtensaProcessor(processor_t):
 
     def _init_registers(self):
         self.reg_names = ["a%d" % d for d in range(16)]
+        self.reg_names += ["f%d" % d for d in range(16)]
         self.reg_names += ["pc", "sar", "CS", "DS"]
         self.reg_ids = {}
         for i, reg in enumerate(self.reg_names):
