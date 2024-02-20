@@ -432,7 +432,7 @@ class XtensaProcessor(processor_t):
         ("s8i",    0x004002, 0x00f00f, Instr.fmt_RRI8_disp ),
         ("s16i",   0x005002, 0x00f00f, Instr.fmt_RRI8_disp16 ),
         ("s32c1i", 0x00e002, 0x00f00f, Instr.fmt_RRI8_s32c1a ),
-        ("s32e",   0x490000, 0x00f00f, Instr.fmt_RRI4 ),
+        ("s32e",   0x490000, 0xff000f, Instr.fmt_RRI4 ),
         ("s32i",   0x006002, 0x00f00f, Instr.fmt_RRI8_disp32 ),
         ("s32ri",  0x00f002, 0x00f00f, Instr.fmt_RRI8_disp32 ),
         ("sext",   0x230000, 0xff000f, Instr.fmt_RRR_sext ),
