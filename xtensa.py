@@ -711,6 +711,16 @@ class XtensaProcessor(processor_t):
                 ctx.out_long(op.addr, 16)
                 ctx.out_tagoff(COLOR_ERROR)
                 remember_problem(Q_noName, ctx.insn.ea)
+
+            # if the operand is offset that points to dword data, show where it points to
+            if is_off(get_flags(ctx.insn_ea), op.n) and is_dword(get_flags(op.addr)):
+                da = generate_disasm_line(op.addr)
+                if da:
+                    # skip .int mnemonic
+                    da = da[9:]
+                    ctx.out_line("→")
+                    ctx.out_line(da)
+
         elif op.type == o_displ:
             ctx.out_register(self.reg_names[op.phrase])
             ctx.out_line(", ")
