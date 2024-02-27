@@ -340,7 +340,6 @@ class XtensaProcessor(processor_t):
         ("memw",   0x0020c0, 0xffffff, Instr.fmt_NONE ),
         ("min",    0x430000, 0xff000f, Instr.fmt_RRR ),
         ("minu",   0x630000, 0xff000f, Instr.fmt_RRR ),
-        ("mov",    0x200000, 0xff000f, Instr.fmt_RRR_sll ),
         ("moveqz", 0x830000, 0xff000f, Instr.fmt_RRR ),
         ("movf",   0xc30000, 0xff000f, Instr.fmt_RRR ),
         ("movgez", 0xb30000, 0xff000f, Instr.fmt_RRR ),
