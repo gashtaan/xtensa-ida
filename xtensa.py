@@ -580,6 +580,9 @@ class XtensaProcessor(processor_t):
         ("utrunc.s",      0xea0000, 0xff000f, Instr.fmt_RF_scale ),
         ("wfr",           0xfa0050, 0xff00ff, Instr.fmt_FR ),
         ("wfrd",          0x8e0000, 0xff000f, Instr.fmt_FRR ),
+
+        # aliases
+        ("mov",           0x200000, 0xff000f, Instr.fmt_NONE )
     )
 
     def __init__(self):
@@ -665,6 +668,11 @@ class XtensaProcessor(processor_t):
         for o in operands:
             o.type = o_void
         instr.parseOperands(operands, op, insn)
+
+        # hack for mov/or alias
+        if insn.itype == self.instrs_ids["or"] and insn[2].reg == insn[3].reg:
+            insn.itype = self.instrs_ids["mov"]
+            insn[3].type = o_void
 
         return insn.size
 
